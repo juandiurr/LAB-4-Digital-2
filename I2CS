@@ -1,0 +1,17 @@
+/*
+ * I2C.h
+ *
+ * Created: 1/08/2024 20:52:39
+ *  Author: diego
+ */ 
+
+
+#ifndef I2C_H_
+#define I2C_H_
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <stdint.h>
+
+void I2C_slave_init(uint8_t address);
+
+#endif /* I2C_H_ */
