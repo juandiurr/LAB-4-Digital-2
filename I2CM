@@ -1,0 +1,85 @@
+/*
+ * I2C.c
+ *
+ * Created: 1/08/2024 20:52:50
+ *  Author: diego
+ */ 
+#include "I2CM.h"
+
+void I2C_master_init(unsigned long scl_clk, uint8_t prescaler){
+	DDRC |= (1<<DDC4)|(1<<DDC5);//pines I2C como salidas
+	switch(prescaler){
+		case 1:
+			TWSR &= ~((1<<TWPS1)|(1<<TWPS0));
+		break;
+		case 4:
+			TWSR &= ~(1<<TWPS1);
+			TWSR |= (1<<TWPS0);
+		break;
+		case 16:
+			TWSR &= ~(1<<TWPS0);
+			TWSR |= (1<<TWPS1);
+		break;
+		case 64:
+			TWSR |= (1<<TWPS1)|(1<<TWPS0);
+		break;
+		default:
+			prescaler = 1;
+			TWSR &= ~((1<<TWPS1)|(1<<TWPS0));
+		break;
+	}	
+	TWBR = ((F_CPU/scl_clk)-16)/(2*prescaler);
+	TWCR |= (1<<TWEN);//habilitamos interfaz
+}
+
+uint8_t I2C_master_start(void){
+	uint8_t estado;
+	TWCR |= (1<<TWINT)|(1<<TWSTA)|(1<<TWEN);//Iniciar condición de start
+	while(!(TWCR&(1<<TWINT)));//ESPERA A QUE TERMINE FLAG TWINT
+	estado = TWSR & 0xF8;//VERIFICAR ESTADO
+	if ((estado == 0x08) || (estado == 0x10)){
+		return 1;
+	}else{
+		return estado; //si devuelve 0 no se envió el start
+	}
+}
+void I2C_master_stop(void){
+	TWCR = (1<<TWEN)|(1<<TWINT)|(1<<TWSTO);//inicia envio de secuencia de parada
+	while(TWCR & (1<<TWSTO));//esperamos que el bit se limpie
+}
+
+//Función de transimición de datos del maestro al esclavo 
+//Devolvera 1 si el esclavo a recibido el dato
+uint8_t I2C_master_write(uint8_t dato){
+	uint8_t estado;
+	TWDR = dato; //cargar dato
+	TWCR = (1<<TWEN)|(1<<TWINT);//INICIA ENVIO
+	while(!(TWCR&(1<<TWINT)));//ESPERA EL FLAG TWINT
+	estado = TWSR & 0xF8;//verificar estado
+	//verificar si se transmitió una SLA + W con ACK, SLA + R con ACK, o un dato sin ACK
+	//completo el envio de info con o sin acknowladge
+	if (estado == 0x18 || estado == 0x28 || estado == 0x40){
+		return 1;
+	}else{
+		return estado;
+	}
+}
+
+//Función para leer los datos que estan en el esclavo
+uint8_t I2C_master_read(uint8_t *buffer, uint8_t ack){
+	uint8_t estado;
+	if (ack){
+		TWCR |= (1<<TWEA);//LECTURA CON ACK
+	}else{
+		TWCR &= ~(1<<TWEA);
+	}
+	TWCR |= (1<<TWINT); //INICIAMOS LECTURA
+	while(!(TWCR&(1<<TWINT)));//ESPERA EL FLAG TWINT
+	estado = TWSR & 0xF8;//verificar estado
+	if (estado == 0x58 || estado == 0x50){
+		*buffer = TWDR;
+		return 1;
+	}else{
+		return estado;
+	}
+}
