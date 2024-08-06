@@ -1,0 +1,64 @@
+/*
+ * LAB4 digital 2 slave 2.c
+ *
+ * Created: 2/08/2024 11:31:43
+ * Author : diego
+ */ 
+
+#define SlaveAddress 0x40
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <stdint.h>
+#include <avr/interrupt.h>
+#include "Librerias/I2CS.h"
+volatile uint8_t buffer = 0;//variable de datos
+int main(void)
+{
+	cli();
+	I2C_slave_init(SlaveAddress);
+	DDRC &= ~((1<<DDC0) | (1<<DDC1));//BOTONES
+	PORTC |= (1<<PORTC0) | (1<<PORTC1);
+	DDRD |= (1<<DDD2) | (1<<DDD3) | (1<<DDD4) | (1<<DDD5);//LEDS
+	PORTD &= ~((1<<PORTD2) | (1<<PORTD3) | (1<<PORTD4) | (1<<PORTD5));
+	PCICR |= (1<<PCIE1); //habilitar interrupcion en el pcint0:7
+	PCMSK1 |= (1<<PCINT8) | (1<<PCINT9); //int botones de posiciones
+	sei();
+	/* Replace with your application code */
+	while (1)
+	{
+		PORTD = (buffer<<2);
+		
+	}
+}
+ISR(TWI_vect){//interrupcion del esclavo
+	uint8_t estado;
+	estado = TWSR & 0xF8;
+	//el esclavo manda dato a maestro:
+	switch(estado){
+		case 0xA8://se ha recibido la instruccion de mandar dato, se mando ACK
+		case 0xB0: //no se ha rcibido intsr W/R, lo toma como R y se manda ACK
+			TWDR = buffer;
+			TWCR |= (1<<TWINT);
+		break;
+		case 0xB8: //se mando el dato en TWDR se recibio ack
+		case 0xC0: //se mando el dato en TWDR, no se recibió ack
+			TWCR |= (1<<TWINT) | (1<<TWEN);
+		break;
+		default://se libera el bus de cualquier error
+			TWCR |= (1<<TWINT) | (1<<TWSTO);
+		break;
+	}
+}
+
+ISR(PCINT1_vect){
+	if (!(PINC & (1<<PINC0))){
+		buffer++;
+	}else if(!(PINC & (1<<PINC1))){
+		buffer--;
+	}
+	if (buffer > 15){
+		buffer = 0;
+	}else if(buffer < 0){
+		buffer = 15;
+	}
+}
