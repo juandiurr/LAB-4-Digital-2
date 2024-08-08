@@ -10,6 +10,7 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 #include "Librerias/I2CS.h"
 volatile uint8_t buffer = 0;//variable de datos
 int main(void)
@@ -27,38 +28,54 @@ int main(void)
 	while (1)
 	{
 		PORTD = (buffer<<2);
-		
+		_delay_ms(500);
 	}
 }
-ISR(TWI_vect){//interrupcion del esclavo
-	uint8_t estado;
-	estado = TWSR & 0xF8;
-	//el esclavo manda dato a maestro:
-	switch(estado){
-		case 0xA8://se ha recibido la instruccion de mandar dato, se mando ACK
-		case 0xB0: //no se ha rcibido intsr W/R, lo toma como R y se manda ACK
-			TWDR = buffer;
-			TWCR |= (1<<TWINT);
+
+ISR(TWI_vect) {
+	uint8_t estado = TWSR & 0xF8; // Lee los 3 bits superiores del registro de estado
+
+	switch (estado) {
+		/*case 0x60: // SLA+W recibido, ACK enviado
+		case 0x70: // SLA+W recibido en modo general, ACK enviado
+		TWCR |= (1 << TWINT); // Borra el flag TWINT para continuar
 		break;
-		case 0xB8: //se mando el dato en TWDR se recibio ack
-		case 0xC0: //se mando el dato en TWDR, no se recibió ack
-			TWCR |= (1<<TWINT) | (1<<TWEN);
+
+		case 0x80: // Datos recibidos, ACK enviado
+		case 0x90: // Datos recibidos en llamada general, ACK enviado
+		dato = TWDR; // Lee el dato recibido del registro de datos
+		TWCR |= (1 << TWINT); // Borra el flag TWINT para continuar
+		break;*/
+
+		case 0xA8: // SLA+R recibido, ACK enviado
+		case 0xB8: // Dato transmitido y ACK recibido
+		TWDR = buffer; // Carga el valor del ADC en el registro de datos
+		TWCR |= (1 << TWINT) | (1 << TWEA); // Borra el flag TWINT y habilita ACK para el próximo byte
 		break;
-		default://se libera el bus de cualquier error
-			TWCR |= (1<<TWINT) | (1<<TWSTO);
+
+		case 0xC0: // Dato transmitido y NACK recibido
+		case 0xC8: // Último dato transmitido y ACK recibido
+		TWCR |= (1 << TWINT) | (1 << TWEA); // Borra el flag TWINT y habilita ACK para el próximo byte
+		break;
+		
+		default: // Manejo de errores
+		TWCR |= (1 << TWINT) | (1 << TWSTO); // Borra el flag TWINT y envía una condición de STOP
 		break;
 	}
 }
 
 ISR(PCINT1_vect){
 	if (!(PINC & (1<<PINC0))){
-		buffer++;
+		if (buffer < 15){
+			buffer++;
+		}
+		
 	}else if(!(PINC & (1<<PINC1))){
-		buffer--;
+		if (buffer > 0){
+			buffer--;
+		}
+		
+		
 	}
-	if (buffer > 15){
-		buffer = 0;
-	}else if(buffer < 0){
-		buffer = 15;
-	}
+	
 }
