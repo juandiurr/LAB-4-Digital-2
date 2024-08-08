@@ -54,13 +54,13 @@ int main(void)
 		I2C_master_stop();*/
 		//PRIMER ESCLAVO
 		
-		buffer = 0;
+		/*buffer = 0;
 		buffer = Slave1 << 1;
 		buffer |= (1<<0); //leer del esclavo
-		temp = I2C_master_start();
+		temp = I2C_master_start();*/
 		estado = 1;
 		do{
-			if (temp != 1){
+			/*if (temp != 1){
 				I2C_master_stop();
 				LCD_Set_Cursor(10, 2);
 				LCD_WriteCaracter(temp);
@@ -79,7 +79,7 @@ int main(void)
 			if (temp != 1){
 				I2C_master_stop();
 				TCNT0 = 255;
-				PORTC |= (1<<PORTC2);//no se recibió dato
+				PORTC |= (1<<PORTC2);//no se recibiÃ³ dato
 				LCD_Set_Cursor(14, 2);
 				LCD_WriteCaracter(temp);
 				estado = 0;
@@ -88,12 +88,17 @@ int main(void)
 				
 				//TCNT0 = 255;
 				//PORTC |= (1<<PORTC2);
+			}*/
+			temp = I2C_leer_esclavo(Slave1, dato1);
+			if (temp != 0){
+				LCD_Set_Cursor(15, 2);
+				LCD_WriteCaracter(temp);
 			}
 			
 			estado = 0;
 		}while(estado == 1);
 		//LCD_Write_String(dato1);
-		_delay_ms(100);
+		_delay_ms(500);
 		dato1c = *dato1/100 + 48;
 		dato1d = (*dato1%100)/10 + 48;
 		dato1u = *dato1%10 + 48;
@@ -104,13 +109,13 @@ int main(void)
 		LCD_Set_Cursor(3,2);
 		LCD_WriteCaracter(dato1u);
 		//SEGUNDO ESCLAVO
-		buffer = 0;
+		/*buffer = 0;
 		buffer = Slave2 << 1;
 		buffer |= (1<<0); //leer del esclavo
-		temp = I2C_master_start();
+		temp = I2C_master_start();*/
 		estado = 2;
 		do{
-			if (temp != 1){
+			/*if (temp != 1){
 				I2C_master_stop();
 				LCD_Set_Cursor(16, 2);
 				LCD_WriteCaracter(temp);
@@ -129,7 +134,7 @@ int main(void)
 			if (temp != 1){
 				TCNT0 = 255;
 				PORTC |= (1<<PORTC2);
-				I2C_master_stop();//no se recibió dato
+				I2C_master_stop();//no se recibiÃ³ dato
 				LCD_Set_Cursor(15,2);
 				LCD_WriteCaracter(temp);
 				estado = 0;
@@ -137,14 +142,22 @@ int main(void)
 				//TCNT0 = 255;
 				//PORTC |= (1<<PORTC2);
 				I2C_master_stop();
+			}*/
+			temp = I2C_leer_esclavo(Slave2, dato2);
+			if (temp != 0){
+				LCD_Set_Cursor(16, 2);
+				LCD_WriteCaracter(temp);
 			}
-			
 			
 			//LCD_Write_String(dato2);
 			estado = 0;
 			}while(estado == 2);
-		_delay_ms(100);
-		dato2d = *dato2/10 + 48;
+		_delay_ms(500);
+		if (*dato2 >= 10){
+			dato2d = 49;
+		}else if(*dato2 < 10){
+			dato2d = 48;
+		}
 		dato2u = *dato2%10 + 48;
 		LCD_Set_Cursor(7,2);
 		LCD_WriteCaracter(dato2d);
