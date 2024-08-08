@@ -83,3 +83,45 @@ uint8_t I2C_master_read(uint8_t *buffer, uint8_t ack){
 		return estado;
 	}
 }
+
+uint8_t I2C_leer_esclavo(uint8_t direccion_esclavo, uint8_t *dato) {
+	uint8_t estado;
+	// Iniciar condición de START
+	TWCR = (1 << TWSTA) | (1 << TWEN) | (1 << TWINT);
+	while (!(TWCR & (1 << TWINT))); // Esperar a que se complete
+
+	// Verificar estado de START
+	estado = TWSR & 0xF8;
+	if (estado != 0x08 && estado != 0x10){
+		return estado;// Error: No se pudo iniciar la condición de START
+		I2C_master_stop();
+	}
+	
+
+	// Enviar dirección del esclavo con bit de lectura
+	TWDR = (direccion_esclavo << 1) | 1; // SLA + R (bit de lectura)
+	TWCR = (1 << TWEN) | (1 << TWINT);
+	while (!(TWCR & (1 << TWINT))); // Esperar a que se complete
+
+	// Verificar estado de la dirección del esclavo
+	estado = TWSR & 0xF8;
+	if (estado != 0x40){
+		I2C_master_stop();
+		return estado;
+	}
+	//TWCR |= (1<<TWEA);//LECTURA CON ACK
+	// Leer el dato del esclavo
+	TWCR = (1 << TWINT) | (1 << TWEN);
+	while (!(TWCR & (1 << TWINT))); // Esperar a que se complete
+
+	// Verificar estado del dato recibido
+	estado = TWSR & 0xF8;
+	if(estado != 0x58 && estado != 0x50){
+		I2C_master_stop();
+		return estado;
+	}else{
+		*dato = TWDR; // Leer el dato recibido
+		I2C_master_stop(); // Generar condición de STOP
+		return 0; // Éxito
+	}
+}
