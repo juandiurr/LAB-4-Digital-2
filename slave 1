@@ -26,42 +26,40 @@ int main(void)
     while (1) 
     {
 		ADCSRA |= (1<<ADSC);//HABILITAR CONVERSION
-		_delay_ms(100);
+		_delay_ms(500);
     }
 }
 
-ISR(TWI_vect){//interrupcion del esclavo
-	uint8_t estado;
-	estado = TWSR & 0xF8;
-	//el esclavo manda dato a maestro:
-	switch(estado){
-		case 0xA8://se ha recibido la instruccion de mandar dato, se mando ACK
-		case 0xB0: //no se ha rcibido instr W/R, lo toma como R y se manda ACK
-			TWDR = buffer2;
-			TWCR |= (1<<TWINT);
+ISR(TWI_vect) {
+	uint8_t estado = TWSR & 0xF8; // Lee los 3 bits superiores del registro de estado
+
+	switch (estado) {
+		/*case 0x60: // SLA+W recibido, ACK enviado
+		case 0x70: // SLA+W recibido en modo general, ACK enviado
+		TWCR |= (1 << TWINT); // Borra el flag TWINT para continuar
 		break;
-		case 0xB8: //se mando el dato en TWDR se recibio ack
-		case 0xC0: //se mando el dato en TWDR, no se recibió ack
-			TWCR |= (1<<TWINT) | (1<<TWEN);
+
+		case 0x80: // Datos recibidos, ACK enviado
+		case 0x90: // Datos recibidos en llamada general, ACK enviado
+		dato = TWDR; // Lee el dato recibido del registro de datos
+		TWCR |= (1 << TWINT); // Borra el flag TWINT para continuar
+		break;*/
+
+		case 0xA8: // SLA+R recibido, ACK enviado
+		case 0xB8: // Dato transmitido y ACK recibido
+		TWDR = buffer2; // Carga el valor del ADC en el registro de datos
+		TWCR |= (1 << TWINT) | (1 << TWEA); // Borra el flag TWINT y habilita ACK para el próximo byte
 		break;
-		default://se libera el bus de cualquier error
-			TWCR |= (1<<TWINT) | (1<<TWSTO);
+
+		case 0xC0: // Dato transmitido y NACK recibido
+		case 0xC8: // Último dato transmitido y ACK recibido
+		TWCR |= (1 << TWINT) | (1 << TWEA); // Borra el flag TWINT y habilita ACK para el próximo byte
+		break;
+		
+		default: // Manejo de errores
+		TWCR |= (1 << TWINT) | (1 << TWSTO); // Borra el flag TWINT y envía una condición de STOP
 		break;
 	}
-	//El maestro escribe al esclavo
-	/*switch(estado){
-		case 0x60://se recibió y se mandó ACK
-		case 0x70://llamada general y se mandó ACK
-			TWCR |= (1<<TWINT);
-			break;
-		case 0x80://se recibió dirección, se ha recibido data, ack se ha mandado
-		case 0x90://llamada general se recibió, se ha recibido data, ack se ha mandado
-			buffer1 = TWDR;
-			TWCR |= (1<<TWINT);
-			break;
-		default://se libera el bus de cualquier error
-			TWCR |= (1<<TWINT) | (1<<TWSTO);
-		break;*/
 }
 ISR(ADC_vect){
 	buffer2 = ADCH;
